@@ -1,66 +1,90 @@
-
-fn -default-options [last words]{
-  unused_single = [&'-c'=true &'-n'=true &'-e'=true &'-s'=true &'-r'=true &'-R'=true &'-C'=true &'-M'=true &'-S'=true &'--tab'=true]
-  for word $words {
-    unused_single[$word] = false
-    if (eq $word '-C') {
-      unused_single['-M'] = false
-    } elif (eq $word '-M') {
-      unused_single['-C'] = false
-    }
-  }
-  if (or (eq $last '') (eq $last '-')) {
-    ks = [(keys $unused_single)]
-    for k $ks {
-      if (eq true $unused_single[$k]) {
-        put $k
+-empty_only = [
+  -h
+  --help
+  --version
+]
+-single_use = [
+  &'-a'=['--ascii-output' '-a']
+  &'-C'=['--monochrome-output' '-M' '--color-output' '-C']
+  &'-c'=['--compact-output' '-c']
+  &'-e'=['--exit-status' '-e']
+  &'-f'=['--from-file' '-f']
+  &'-j'=['--join-output' '-j']
+  &'-M'=['--monochrome-output' '-M' '--color-output' '-C']
+  &'-n'=['--null-input' '-n']
+  &'-R'=['--raw-input' '-R']
+  &'-r'=['--raw-output' '-r']
+  &'-S'=['--sort-keys' '-S']
+  &'-s'=['--slurp' '-s']
+  &'--args'=['--args']
+  &'--ascii-output'=['--ascii-output' '-a']
+  &'--color-output'=['--monochrome-output' '-M' '--color-output' '-C']
+  &'--compact-output'=['--compact-output' '-c']
+  &'--exit-status'=['--exit-status' '-e']
+  &'--from-file'=['--from-file' '-f']
+  &'--indent'=['--indent']
+  &'--join-output'=['--join-output' '-j']
+  &'--jsonargs'=['--jsonargs']
+  &'--monochrome-output'=['--monochrome-output' '-M' '--color-output' '-C']
+  &'--null-input'=['--null-input' '-n']
+  &'--raw-input'=['--raw-input' '-R']
+  &'--raw-output'=['--raw-output' '-r']
+  &'--seq'=['--seq']
+  &'--slurp'=['--slurp' '-s']
+  &'--sort-keys'=['--sort-keys' '-S']
+  &'--stream'=['--stream']
+  &'--tab'=['--tab']
+  &'--unbuffered'=['--unbuffered']
+]
+-have-args = [
+  &'-f'=1
+  &'--arg'=2
+  &'--argjson'=2
+  &'--from-file'=1
+  &'--indent'=1
+  &'--rawfile'=2
+  &'--slurpfile'=2
+]
+-have-args-with-filename = [
+  &'--rawfile'=2
+  &'--slurpfile'=2
+]
+-arg-terminators = [
+  &'--'='filenames'
+  &'--args'='strings'
+  &'--jsonargs'='jsonstrings'
+]
+-repeatable = [
+  -L
+  --arg
+  --argjson
+  --rawfile
+  --slurpfile
+]
+fn -default-options [last preceeding]{
+  used_single = [&]
+  for word $preceeding {
+    used_single[$word] = true
+    if (has-key $-single_use $word) {
+      others = $-single_use[$word]
+      for other $others {
+        used_single[$other] = true
       }
     }
-  	put '--arg'
-    put '--argjson'
-    put '--slurpfile'
-    put '--rawfile'
-    put '--args'
-    put '--jsonargs'
-    put '--'
-  } elif (eq (count $last) 1) {
-    return
-  } elif  (eq $last '--') {
-    put '--tab'
-    put '--arg'
-    put '--argjson'
-    put '--slurpfile'
-    put '--rawfile'
-    put '--args'
-    put '--jsonargs'
-    put '--'
-  } elif (eq (count $last) 2) {
-    return
-  } elif  (eq $last[0:3] '--a') {
-  	put '--arg'
-    put '--argjson'
-    put '--args'
-  } elif  (eq $last[0:3] '--s') {
-    put '--slurpfile'
-  } elif  (eq $last[0:3] '--r') {
-    put '--rawfile'
-  } elif  (eq $last[0:3] '--j') {
-    put '--jsonargs'
-  } elif  (eq $last[0:3] '--t') {
-    put '--tab'
+  } else {
+    explode $-empty_only
   }
+
+  for k [(keys $-single_use)] {
+    if (not (has-key $used_single $k)) {
+      put $k
+    }
+  }
+  
+  explode $-repeatable
 }
 
-fn -nop [last words]{
-  nop
-}
-
-fn -file-param [last words]{
-  edit:complete-filename $words[-1]
-  return
-}
-
-fn jq-completer [@words]{
+fn jq-completer [handle words]{
   if (eq (count $words) 1) {
     -default-options '' []
   }
@@ -71,27 +95,30 @@ fn jq-completer [@words]{
   num_args = 0
 
   for word $preceeding {
-    if (or (eq $word '--') (eq $word '--args') (eq $word '--jsonargs')) {
-      # Term arg parsing
-      return
-    } elif (or (eq $word '--arg') (eq $word '--argjson')) {
-      file_var_taking = false
-      h = $-nop~
-    } elif (or (eq $word '--slurpfile') (eq $word '--rawfile')) {
-      # Known variable taking
-      file_var_taking = true
-      h = $-nop~
-    } elif (or (eq $word '-c') (eq $word '-n') (eq $word '-e') (eq $word '-s') (eq $word '-r') (eq $word '-R') (eq $word '-C') (eq $word '-M') (eq $word '-S') (eq $word '--tab')) {
-      # Known single taking
-      file_var_taking = false
-      h = $-default-options~
-    } elif (eq $num_args 0) {
-      num_args = (+ $num_args 1)
-      if $file_var_taking {
-        h = $-file-param~
+    if (has-key $-arg-terminators $word) {
+      if (eq $-arg-terminators[$word] 'filenames') {
+        h = $handle
+        break
+      } else {
+        return
       }
+    } elif (has-key $-have-args-with-filename $word) {
+      file_var_taking = true
+      num_args = $-have-args-with-filename[$word]
+      h = $nop~
+    } elif (has-key $-have-args $word) {
+      num_args = $-have-args[$word]
+      h = $nop~
+    } elif (eq $num_args 2) {
+      num_args = (- $num_args 1)
+      if $file_var_taking {
+        h = $handle
+        file_var_taking = false
+      }
+    } elif (eq $num_args 1) {
+      num_args = (- $num_args 1)
+      h = $-default-options~
     } else {
-      num_args = 0
       h = $-default-options~
     }
   }
@@ -99,5 +126,10 @@ fn jq-completer [@words]{
 }
 
 fn apply {
-    edit:completion:arg-completer[jq] = $jq-completer~
+    edit:completion:arg-completer[jq] = [@words]{
+      handle = [last words]{
+        edit:complete-filename $words[-1]
+      }
+      jq-completer $handle $words
+    }
 }

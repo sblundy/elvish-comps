@@ -1,7 +1,13 @@
 use github.com/zzamboni/elvish-modules/test
 use jq
 
-cmds = [(jq:jq-completer jq '')]
+fn sut [@words]{
+    h = [last preceeding]{
+        put 'test.txt'
+    }
+    jq:jq-completer $h $words
+}
+cmds = [(sut jq '')]
 
 (test:set 'jq' [
   (test:set "basic options" [
@@ -10,13 +16,17 @@ cmds = [(jq:jq-completer jq '')]
     (test:check { has-value $cmds '-n' })
   ])
   (test:set "used options not suggested" [
-    (test:check { not (has-value [(jq:jq-completer jq '-c' '')] '-c') })
+    (test:check { not (has-value [(sut jq '-c' '')] '-c') })
     (test:check { and [
-        (not (has-value [(jq:jq-completer jq '-c' '-C' '')] '-c')) 
-        (not (has-value [(jq:jq-completer jq '-c' '-C' '')] '-C')) 
+        (not (has-value [(sut jq '-c' '-C' '')] '-c')) 
+        (not (has-value [(sut jq '-c' '-C' '')] '-C')) 
     ]})
   ])
+  (test:set "used short options remove long" [
+    (test:check { not (has-value [(sut jq '-C' '')] '--color-output') })
+  ])
   (test:set "no suggestions for variable" [
-    (test:check { eq [(jq:jq-completer jq '--rawfile' '')] [] })
+    (test:check { eq [(sut jq '--rawfile' '')] [] })
+    (test:check { eq [(sut jq '--rawfile' 'x' '')] ['test.txt'] })
   ])
 ])
