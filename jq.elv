@@ -60,7 +60,7 @@ fn -file-param [last words]{
   return
 }
 
-fn compl [@words]{
+fn jq-completer [@words]{
   if (eq (count $words) 1) {
     -default-options '' []
   }
@@ -99,5 +99,5 @@ fn compl [@words]{
 }
 
 fn apply {
-    edit:completion:arg-completer[jq] = $compl~
+    edit:completion:arg-completer[jq] = $jq-completer~
 }
