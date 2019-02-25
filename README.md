@@ -1,6 +1,6 @@
 # Elvish-Comps
 
-Completer Definitions for Elvish
+Completer Definitions for [Elvish](https://elv.sh)
 
 ## Installation
 
